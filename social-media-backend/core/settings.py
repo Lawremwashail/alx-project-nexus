@@ -29,7 +29,12 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     
     'social',
+    'graphene_django',
 ]
+
+GRAPHENE = {
+    "SCHEMA": "core.schema.schema",
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
