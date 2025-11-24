@@ -7,12 +7,17 @@ User = get_user_model()
 class Post(models.Model):
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='posts')
     content = models.TextField()
+    # keep both an uploaded image and an optional external media url
     image = models.ImageField(upload_to='post_images/', null=True, blank=True)
+    media_url = models.URLField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"Post by {self.author.username}"
+        # guard in case of custom user model without username
+        username = getattr(self.author, "username", str(self.author))
+        return f"Post by {username} ({self.id})"
+
 
 # Comment Model
 class Comment(models.Model):
@@ -23,9 +28,11 @@ class Comment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Comment by {self.user.username}"
+        username = getattr(self.user, "username", str(self.user))
+        return f"Comment by {username} on Post {self.post_id}"
 
-#Interaction Model
+
+# Interaction Model
 class Interaction(models.Model):
     INTERACTION_TYPES = (
         ('like', 'Like'),
@@ -35,32 +42,42 @@ class Interaction(models.Model):
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='interactions')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='interactions')
     type = models.CharField(max_length=20, choices=INTERACTION_TYPES)
-    content = models.TextField(null=True, blank=True)
+    content = models.TextField(null=True, blank=True)  # e.g., reaction name or share text
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         unique_together = ('post', 'user', 'type')
 
     def __str__(self):
-        return f"{self.user.username} {self.type}d Post {self.post.id}"
+        username = getattr(self.user, "username", str(self.user))
+        return f"{username} {self.type}d Post {self.post_id}"
+
 
 # Follower Model
 class Follower(models.Model):
-    follower = models.ForeignKey(User, on_delete=models.CASCADE, related_name='following')
-    following = models.ForeignKey(User, on_delete=models.CASCADE, related_name='follower')
+    follower = models.ForeignKey(User, on_delete=models.CASCADE, related_name='following')   # users this user follows
+    following = models.ForeignKey(User, on_delete=models.CASCADE, related_name='followers')  # users that follow this user
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return f"{self.follower.username} follows {self.following.username}"
+    class Meta:
+        unique_together = ('follower', 'following')
 
-# Notification Models
+    def __str__(self):
+        f1 = getattr(self.follower, "username", str(self.follower))
+        f2 = getattr(self.following, "username", str(self.following))
+        return f"{f1} follows {f2}"
+
+
+# Notification Model
 class Notification(models.Model):
     recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
     actor = models.ForeignKey(User, on_delete=models.CASCADE, related_name='actions')
-    post = models.ForeignKey(Post, null=True, on_delete=models.SET_NULL)
+    post = models.ForeignKey(Post, null=True, blank=True, on_delete=models.SET_NULL)
     message = models.CharField(max_length=255)
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Notification to {self.recipient.username}"
+        recipient_name = getattr(self.recipient, "username", str(self.recipient))
+        return f"Notification to {recipient_name} - {self.message[:40]}"
+
