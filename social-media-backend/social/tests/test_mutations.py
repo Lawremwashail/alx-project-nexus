@@ -2,7 +2,7 @@ from django.test import TestCase
 from django.contrib.auth import get_user_model
 from graphene.test import Client
 from social.schema import schema
-from social.models import Post, Comment, Like
+from social.models import Post, Comment, Like, Follow, Notification
 
 User = get_user_model()
 
@@ -17,6 +17,13 @@ class MutationTests(TestCase):
         self.user = User.objects.create_user(
             username="testuser",
             email="test@example.com",
+            password="password123"
+        )
+
+        # Create another user for follow tests
+        self.other_user = User.objects.create_user(
+            username="otheruser",
+            email="other@example.com",
             password="password123"
         )
 
@@ -128,4 +135,42 @@ class MutationTests(TestCase):
 
         # Still only one like
         self.assertEqual(Like.objects.count(), 1)
+
+    # -----------------------------------
+    # Test followUser Mutation
+    # -----------------------------------
+    def test_follow_user(self):
+        query = f'''
+            mutation {{
+              followUser(userId: {self.other_user.id}) {{
+                ok
+              }}
+            }}
+        '''
+
+        response = self.client.execute(query)
+        self.assertTrue(response["data"]["followUser"]["ok"])
+        self.assertEqual(self.user.following.count(), 1)
+
+    # -----------------------------------
+    # Test createNotification Mutation
+    # -----------------------------------
+    def test_create_notification(self):
+        query = '''
+            mutation {
+              createNotification(userId: 1, message: "Test notification") {
+                notification {
+                  id
+                  message
+                }
+              }
+            }
+        '''
+
+        response = self.client.execute(query)
+        notif = response["data"]["createNotification"]["notification"]
+
+        self.assertIsNotNone(notif["id"])
+        self.assertEqual(notif["message"], "Test notification")
+        self.assertEqual(Notification.objects.count(), 1)
 
