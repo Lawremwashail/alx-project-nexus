@@ -4,6 +4,9 @@ from social.models import Post, Comment, Interaction, Follower, Notification
 
 User = get_user_model()
 
+# -------------------------
+# Process a comment
+# -------------------------
 @shared_task
 def process_comment(user_id, post_id, content):
     try:
@@ -14,6 +17,7 @@ def process_comment(user_id, post_id, content):
 
     comment = Comment.objects.create(post=post, user=user, content=content)
 
+    # Notify post author if different
     if post.author != user:
         Notification.objects.create(
             recipient=post.author,
@@ -23,25 +27,53 @@ def process_comment(user_id, post_id, content):
         )
     return comment.id
 
+# -------------------------
+# Process a like
+# -------------------------
 @shared_task
-def process_interaction(user_id, post_id, interaction_type):
+def process_like(user_id, post_id):
     try:
         user = User.objects.get(id=user_id)
         post = Post.objects.get(id=post_id)
     except (User.DoesNotExist, Post.DoesNotExist):
         return False
 
-    Interaction.objects.get_or_create(user=user, post=post, type=interaction_type)
+    Interaction.objects.get_or_create(user=user, post=post, type="like")
 
     if post.author != user:
         Notification.objects.create(
             recipient=post.author,
             actor=user,
             post=post,
-            message=f"{getattr(user, 'username', str(user))} {interaction_type}d your post"
+            message=f"{getattr(user, 'username', str(user))} liked your post"
         )
     return True
 
+# -------------------------
+# Process a share
+# -------------------------
+@shared_task
+def process_share(user_id, post_id):
+    try:
+        user = User.objects.get(id=user_id)
+        post = Post.objects.get(id=post_id)
+    except (User.DoesNotExist, Post.DoesNotExist):
+        return False
+
+    Interaction.objects.get_or_create(user=user, post=post, type="share")
+
+    if post.author != user:
+        Notification.objects.create(
+            recipient=post.author,
+            actor=user,
+            post=post,
+            message=f"{getattr(user, 'username', str(user))} shared your post"
+        )
+    return True
+
+# -------------------------
+# Optional: Async follow/unfollow
+# -------------------------
 @shared_task
 def process_follow(user_id, target_id):
     try:
