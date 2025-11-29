@@ -1,6 +1,7 @@
 import graphene
 from graphql import GraphQLError
 from django.contrib.auth import get_user_model
+from .types import UserType 
 
 from social.models import Post, Comment, Interaction, Follower, Notification
 from .types import (
@@ -32,6 +33,23 @@ def login_required(func):
         return func(root, info, *args, **kwargs)
     return wrapper
 
+
+# --------------------------------------------------
+# REGISTER USER
+# --------------------------------------------------
+
+class RegisterUser(graphene.Mutation):
+    class Arguments:
+        username = graphene.String(required=True)
+        email = graphene.String(required=True)
+        password = graphene.String(required=True)
+
+    user = graphene.Field(UserType)
+    ok = graphene.Boolean()
+
+    def mutate(self, info, username, email, password):
+        user = User.objects.create_user(username=username, email=email, password=password)
+        return RegisterUser(user=user, ok=True)
 
 # --------------------------------------------------
 # CREATE POST

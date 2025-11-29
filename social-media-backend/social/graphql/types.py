@@ -23,6 +23,12 @@ class PostType(DjangoObjectType):
         model = Post
         fields = "__all__"
 
+    author = graphene.Field(UserType)
+
+    def resolve_author(self, info):
+        return self.author
+    
+
 
 class CommentType(DjangoObjectType):
     class Meta:

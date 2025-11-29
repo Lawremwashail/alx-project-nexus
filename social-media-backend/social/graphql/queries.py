@@ -65,6 +65,8 @@ class Query(graphene.ObjectType):
     @login_required
     def resolve_me(self, info):
         return info.context.user
+    
+    
 
     # Get profile by ID
     def resolve_user_profile(self, info, user_id):
@@ -75,7 +77,8 @@ class Query(graphene.ObjectType):
 
     # Posts list with pagination & sorting
     def resolve_posts(self, info, limit=None, offset=None, sort_by=None):
-        qs = Post.objects.all()
+        user = info.context.user
+        qs = Post.objects.filter(author=user)
 
         if sort_by == "recent":
             qs = qs.order_by("-created_at")
