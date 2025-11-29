@@ -1,70 +1,174 @@
 import graphene
-from social.models import Post, Comment, Like
-from .types import PostType, CommentType
+from graphql import GraphQLError
+from django.contrib.auth import get_user_model
+
+from social.models import Post, Comment, Interaction, Follower, Notification
+from .types import (
+    PostType, CommentType, InteractionType,
+    FollowerType, NotificationType
+)
+from .auth import RegisterUser
 
 
-# Mutation for creating a new post.
-# Accepts content as input and returns the newly created Post object.
+# Celery tasks
+from social.tasks import (
+    process_comment,
+    process_interaction,
+    process_follow,
+    process_unfollow
+)
 
+User = get_user_model()
+
+
+# --------------------------------------------------
+# AUTH DECORATOR
+# --------------------------------------------------
+def login_required(func):
+    def wrapper(root, info, *args, **kwargs):
+        user = getattr(info.context, "user", None)
+        if not user or user.is_anonymous:
+            raise GraphQLError("Authentication required")
+        return func(root, info, *args, **kwargs)
+    return wrapper
+
+
+# --------------------------------------------------
+# CREATE POST
+# --------------------------------------------------
 class CreatePost(graphene.Mutation):
     class Arguments:
-        content = graphene.String(required=True)   # Text content for the post.
+        content = graphene.String(required=True)
+        media_url = graphene.String(required=False)
 
-    post = graphene.Field(PostType)  # GraphQL field returned after creation.
+    post = graphene.Field(PostType)
 
-
-    def mutate(self, info, content):
-        # Accessing the currently authenticated user from the request context.
+    @login_required
+    def mutate(self, info, content, media_url=None):
         user = info.context.user
-        if user.is_anonymous:
-            # Restricts post creation to authenticated users.
-            raise Exception("Authentication required")
-        # Creating a new Post record associated with the authenticated user.
-        post = Post.objects.create(author=user, content=content)
+        post = Post.objects.create(
+            author=user,
+            content=content,
+            media_url=media_url
+        )
         return CreatePost(post=post)
 
-# Mutation for adding a comment to an existing post.
-# Requires the target post ID and the comment content.
+
+# --------------------------------------------------
+# ADD COMMENT
+# (ASYNC via Celery)
+# --------------------------------------------------
 class AddComment(graphene.Mutation):
     class Arguments:
-        post_id = graphene.Int(required=True)  # ID of the post to comment on.
-        content = graphene.String(required=True) # Comment text.
+        post_id = graphene.ID(required=True)
+        content = graphene.String(required=True)
 
-    comment = graphene.Field(CommentType)  # Returns the created Comment object.
+    ok = graphene.Boolean()
 
+    @login_required
     def mutate(self, info, post_id, content):
-        # Obtains the current user and the post receiving the comment.
         user = info.context.user
-        post = Post.objects.get(id=post_id)
+        process_comment.delay(user.id, int(post_id), content)
+        return AddComment(ok=True)
 
-        # Creating a new comment linked to the post and user.
-        comment = Comment.objects.create(post=post, user=user, content=content)
-        return AddComment(comment=comment)
 
-# Mutation for liking a post.
-# Produces a boolean indicating if the operation succeeded.
-class LikePost(graphene.Mutation):
+# --------------------------------------------------
+# LIKE / REACTION / SHARE  
+# (ALL VIA Interaction MODEL + Celery)
+# --------------------------------------------------
+class AddInteraction(graphene.Mutation):
     class Arguments:
-        post_id = graphene.Int(required=True) # ID of the post being liked.
+        post_id = graphene.ID(required=True)
+        type = graphene.String(required=True)   # "like", "share", "reaction"
+        content = graphene.String(required=False)  # e.g., reaction name
 
-    ok = graphene.Boolean() # Indicates successful like creation.
+    ok = graphene.Boolean()
 
-
-    def mutate(self, info, post_id):
-        # Retrieves user and target post from context and database.
+    @login_required
+    def mutate(self, info, post_id, type, content=None):
         user = info.context.user
-        if user.is_anonymous:
-            raise Exception("Authentication required")
-        post = Post.objects.get(id=post_id)
-        
-        # Ensures a like exists or creates one if necessary.
-        Like.objects.get_or_create(user=user, post=post)
 
-        return LikePost(ok=True)
+        valid = ["like", "share", "reaction"]
+        if type not in valid:
+            raise GraphQLError("Invalid interaction type")
+
+        process_interaction.delay(
+            user.id,
+            int(post_id),
+            type,
+            content
+        )
+
+        return AddInteraction(ok=True)
 
 
-# Root mutation class that exposes all defined mutations to the schema.
+# --------------------------------------------------
+# FOLLOW USER
+# --------------------------------------------------
+class FollowUser(graphene.Mutation):
+    class Arguments:
+        user_id = graphene.ID(required=True)
+
+    ok = graphene.Boolean()
+
+    @login_required
+    def mutate(self, info, user_id):
+        user = info.context.user
+        process_follow.delay(user.id, int(user_id))
+        return FollowUser(ok=True)
+
+
+# --------------------------------------------------
+# UNFOLLOW USER
+# --------------------------------------------------
+class UnfollowUser(graphene.Mutation):
+    class Arguments:
+        user_id = graphene.ID(required=True)
+
+    ok = graphene.Boolean()
+
+    @login_required
+    def mutate(self, info, user_id):
+        user = info.context.user
+        process_unfollow.delay(user.id, int(user_id))
+        return UnfollowUser(ok=True)
+
+
+# --------------------------------------------------
+# MARK NOTIFICATION READ
+# --------------------------------------------------
+class MarkNotificationRead(graphene.Mutation):
+    class Arguments:
+        notification_id = graphene.ID(required=True)
+
+    ok = graphene.Boolean()
+
+    @login_required
+    def mutate(self, info, notification_id):
+        user = info.context.user
+
+        try:
+            notif = Notification.objects.get(
+                id=notification_id,
+                recipient=user
+            )
+        except Notification.DoesNotExist:
+            raise GraphQLError("Notification not found")
+
+        notif.is_read = True
+        notif.save(update_fields=["is_read"])
+
+        return MarkNotificationRead(ok=True)
+
+
+# --------------------------------------------------
+# ROOT MUTATION
+# --------------------------------------------------
 class Mutation(graphene.ObjectType):
     create_post = CreatePost.Field()
     add_comment = AddComment.Field()
-    like_post = LikePost.Field()
+    add_interaction = AddInteraction.Field()
+    follow_user = FollowUser.Field()
+    unfollow_user = UnfollowUser.Field()
+    mark_notification_read = MarkNotificationRead.Field()
+    register_user = RegisterUser.Field()

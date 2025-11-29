@@ -1,34 +1,49 @@
 import graphene
 from graphene_django import DjangoObjectType
-from social.models import Post, Comment, Like, Share
+from django.contrib.auth import get_user_model
+from social.models import (
+    Post,
+    Comment,
+    Interaction,
+    Follower,
+    Notification
+)
+
+User = get_user_model()
 
 
-# GraphQL type representing the Post model.
-# Exposes all Post model fields to the GraphQL API.
+class UserType(DjangoObjectType):
+    class Meta:
+        model = User
+        fields = ("id", "username", "email")
+
+
 class PostType(DjangoObjectType):
     class Meta:
         model = Post
         fields = "__all__"
 
 
-# GraphQL type representing the Comment model.
-# Exposes all Comment model fields to the GraphQL API.
 class CommentType(DjangoObjectType):
     class Meta:
         model = Comment
         fields = "__all__"
 
 
-# GraphQL type representing the Like model.
-# Exposes all Like model fields to the GraphQL API.
-class LikeType(DjangoObjectType):
+class InteractionType(DjangoObjectType):
     class Meta:
-        model = Like
+        model = Interaction
         fields = "__all__"
 
-# GraphQL type representing the Share model.
-# Exposes all Share model fields to the GraphQL API.
-class ShareType(DjangoObjectType):
+
+class FollowerType(DjangoObjectType):
     class Meta:
-        model = Share
+        model = Follower
         fields = "__all__"
+
+
+class NotificationType(DjangoObjectType):
+    class Meta:
+        model = Notification
+        fields = "__all__"
+

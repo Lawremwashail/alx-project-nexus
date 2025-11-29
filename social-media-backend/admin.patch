@@ -1,0 +1,17 @@
+diff --git a/social-media-backend/social/admin.py b/social-media-backend/social/admin.py
+index 059d8be..dac64a0 100644
+--- a/social-media-backend/social/admin.py
++++ b/social-media-backend/social/admin.py
+@@ -1,8 +1,9 @@
+ from django.contrib import admin
+-from .models import Post, Comment, Like, Share
++from .models import Post, Comment, Interaction, Follower, Notification
+ 
+ admin.site.register(Post)
+ admin.site.register(Comment)
+-admin.site.register(Like)
+-admin.site.register(Share)
++admin.site.register(Interaction)
++admin.site.register(Follower)
++admin.site.register(Notification)
+ 

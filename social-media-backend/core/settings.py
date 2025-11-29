@@ -30,10 +30,21 @@ INSTALLED_APPS = [
     
     'social',
     'graphene_django',
+    'graphql_jwt.refresh_token',
 ]
 
 GRAPHENE = {
     "SCHEMA": "core.schema.schema",
+    "MIDDLEWARE": [
+        "graphql_jwt.middleware.JSONWebTokenMiddleware",
+        # optional: add custom middleware
+        "social.graphql.middleware.AuthMiddleware",
+    ],
+}
+
+GRAPHQL_JWT = {
+    "JWT_VERIFY_EXPIRATION": True,
+    "JWT_LONG_RUNNING_REFRESH_TOKEN": True,
 }
 
 MIDDLEWARE = [
@@ -44,6 +55,11 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+]
+
+AUTHENTICATION_BACKENDS = [
+    "graphql_jwt.backends.JSONWebTokenBackend",
+    "django.contrib.auth.backends.ModelBackend",
 ]
 
 ROOT_URLCONF = 'core.urls'
