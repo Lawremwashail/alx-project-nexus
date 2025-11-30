@@ -2,24 +2,20 @@ from pathlib import Path
 from decouple import config
 from datetime import timedelta
 
-
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config('SECRET_KEY')
 
+<<<<<<< HEAD
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool)
 
 ALLOWED_HOSTS = config('DJANGO_ALLOWED_HOSTS', default='').split(',')
+=======
+DEBUG = config('DEBUG', default=True, cast=bool)
+>>>>>>> feature/test-app
 
-
-# Application definition
+ALLOWED_HOSTS = []  # IMPORTANT for local Docker
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -38,7 +34,6 @@ GRAPHENE = {
     "SCHEMA": "core.schema.schema",
     "MIDDLEWARE": [
         "graphql_jwt.middleware.JSONWebTokenMiddleware",
-        # optional: add custom middleware
         "social.graphql.middleware.AuthMiddleware",
     ],
 }
@@ -46,8 +41,8 @@ GRAPHENE = {
 GRAPHQL_JWT = {
     "JWT_VERIFY_EXPIRATION": True,
     "JWT_LONG_RUNNING_REFRESH_TOKEN": True,
-    "JWT_EXPIRATION_DELTA": timedelta(minutes=30),   # access token expires in 30 minutes
-    "JWT_REFRESH_EXPIRATION_DELTA": timedelta(days=7),  # refresh token valid for 7 days
+    "JWT_EXPIRATION_DELTA": timedelta(minutes=30),
+    "JWT_REFRESH_EXPIRATION_DELTA": timedelta(days=7),
 }
 
 MIDDLEWARE = [
@@ -85,10 +80,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
-
-# Database
-# https://docs.djangoproject.com/en/4.2/ref/settings/#databases
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -96,58 +87,30 @@ DATABASES = {
         'USER': config('DB_USER'),
         'PASSWORD': config('DB_PASSWORD'),
         'HOST': config('DB_HOST'),
-        'PORT': config('DB_PORT', cast=int, default=5432),
-        'OPTIONS': {
-            'sslmode': 'require'
-        }
+        'PORT': config('DB_PORT', cast=int),
     }
 }
 
-
-# Password validation
-# https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
-
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-
-# Internationalization
-# https://docs.djangoproject.com/en/4.2/topics/i18n/
-
 LANGUAGE_CODE = 'en-us'
-
 TIME_ZONE = 'UTC'
-
 USE_I18N = True
-
 USE_TZ = True
-
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'static'
 MEDIA_URL = '/post_images/'
 MEDIA_ROOT = BASE_DIR / 'post_images'
 
-# Default primary key field type
-# https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+<<<<<<< HEAD
 REDIS_URL = f"rediss://:{config('REDIS_PASSWORD')}@{config('REDIS_HOST')}:{config('REDIS_PORT')}/0"
 
 REDIS_PASSWORD = config('REDIS_PASSWORD', default='')
@@ -155,6 +118,17 @@ REDIS_PASSWORD = config('REDIS_PASSWORD', default='')
 CELERY_BROKER_URL = config('CELERY_BROKER_URL', default=REDIS_URL)
 CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND', default=REDIS_URL)
 
+=======
+# Celery / Redis
+CELERY_BROKER_URL = config(
+    'CELERY_BROKER_URL',
+    default=f"redis://{config('REDIS_HOST', 'redis')}:{config('REDIS_PORT', 6379)}/0"
+)
+CELERY_RESULT_BACKEND = config(
+    'CELERY_RESULT_BACKEND',
+    default=CELERY_BROKER_URL
+)
+>>>>>>> feature/test-app
 
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
