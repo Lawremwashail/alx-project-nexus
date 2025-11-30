@@ -16,7 +16,7 @@ SECRET_KEY = config('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = config('DJANGO_ALLOWED_HOSTS', default='').split(',')
 
 
 # Application definition
@@ -97,6 +97,9 @@ DATABASES = {
         'PASSWORD': config('DB_PASSWORD'),
         'HOST': config('DB_HOST'),
         'PORT': config('DB_PORT', cast=int, default=5432),
+        'OPTIONS': {
+            'sslmode': 'require'
+        }
     }
 }
 
@@ -145,8 +148,13 @@ MEDIA_ROOT = BASE_DIR / 'post_images'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-CELERY_BROKER_URL = config('CELERY_BROKER_URL', default=f"redis://{config('REDIS_HOST','redis')}:{config('REDIS_PORT',6379)}/0")
-CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND', default=CELERY_BROKER_URL)
+REDIS_URL = f"rediss://:{config('REDIS_PASSWORD')}@{config('REDIS_HOST')}:{config('REDIS_PORT')}/0"
+
+REDIS_PASSWORD = config('REDIS_PASSWORD', default='')
+
+CELERY_BROKER_URL = config('CELERY_BROKER_URL', default=REDIS_URL)
+CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND', default=REDIS_URL)
+
 
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
