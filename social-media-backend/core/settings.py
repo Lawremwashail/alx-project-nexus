@@ -6,14 +6,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config('SECRET_KEY')
 
-<<<<<<< HEAD
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', default=False, cast=bool)
-
-ALLOWED_HOSTS = config('DJANGO_ALLOWED_HOSTS', default='').split(',')
-=======
 DEBUG = config('DEBUG', default=True, cast=bool)
->>>>>>> feature/test-app
 
 ALLOWED_HOSTS = []  # IMPORTANT for local Docker
 
@@ -110,15 +103,6 @@ MEDIA_ROOT = BASE_DIR / 'post_images'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-<<<<<<< HEAD
-REDIS_URL = f"rediss://:{config('REDIS_PASSWORD')}@{config('REDIS_HOST')}:{config('REDIS_PORT')}/0"
-
-REDIS_PASSWORD = config('REDIS_PASSWORD', default='')
-
-CELERY_BROKER_URL = config('CELERY_BROKER_URL', default=REDIS_URL)
-CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND', default=REDIS_URL)
-
-=======
 # Celery / Redis
 CELERY_BROKER_URL = config(
     'CELERY_BROKER_URL',
@@ -128,7 +112,6 @@ CELERY_RESULT_BACKEND = config(
     'CELERY_RESULT_BACKEND',
     default=CELERY_BROKER_URL
 )
->>>>>>> feature/test-app
 
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
