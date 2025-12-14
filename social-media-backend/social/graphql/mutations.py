@@ -1,15 +1,16 @@
 import graphene
 from graphql import GraphQLError
 from django.contrib.auth import get_user_model
-from .types import UserType 
 
-from social.models import Post, Comment, Interaction, Follower, Notification
+from social.models import Post, Notification
 from .types import (
-    PostType, CommentType, InteractionType,
-    FollowerType, NotificationType
+    UserType,
+    PostType,
+    NotificationType,
 )
-from .auth import RegisterUser
 
+# Import auth mutations
+from .auth import RegisterUser, LoginUser
 
 # Celery tasks
 from social.tasks import (
@@ -35,23 +36,6 @@ def login_required(func):
 
 
 # --------------------------------------------------
-# REGISTER USER
-# --------------------------------------------------
-
-class RegisterUser(graphene.Mutation):
-    class Arguments:
-        username = graphene.String(required=True)
-        email = graphene.String(required=True)
-        password = graphene.String(required=True)
-
-    user = graphene.Field(UserType)
-    ok = graphene.Boolean()
-
-    def mutate(self, info, username, email, password):
-        user = User.objects.create_user(username=username, email=email, password=password)
-        return RegisterUser(user=user, ok=True)
-
-# --------------------------------------------------
 # CREATE POST
 # --------------------------------------------------
 class CreatePost(graphene.Mutation):
@@ -63,9 +47,8 @@ class CreatePost(graphene.Mutation):
 
     @login_required
     def mutate(self, info, content, media_url=None):
-        user = info.context.user
         post = Post.objects.create(
-            author=user,
+            author=info.context.user,
             content=content,
             media_url=media_url
         )
@@ -73,8 +56,7 @@ class CreatePost(graphene.Mutation):
 
 
 # --------------------------------------------------
-# ADD COMMENT
-# (ASYNC via Celery)
+# ADD COMMENT (ASYNC)
 # --------------------------------------------------
 class AddComment(graphene.Mutation):
     class Arguments:
@@ -85,38 +67,36 @@ class AddComment(graphene.Mutation):
 
     @login_required
     def mutate(self, info, post_id, content):
-        user = info.context.user
-        process_comment.delay(user.id, int(post_id), content)
+        process_comment.delay(
+            info.context.user.id,
+            int(post_id),
+            content
+        )
         return AddComment(ok=True)
 
 
 # --------------------------------------------------
-# LIKE / REACTION / SHARE  
-# (ALL VIA Interaction MODEL + Celery)
+# INTERACTIONS (LIKE / SHARE / REACTION)
 # --------------------------------------------------
 class AddInteraction(graphene.Mutation):
     class Arguments:
         post_id = graphene.ID(required=True)
-        type = graphene.String(required=True)   # "like", "share", "reaction"
-        content = graphene.String(required=False)  # e.g., reaction name
+        type = graphene.String(required=True)
+        content = graphene.String(required=False)
 
     ok = graphene.Boolean()
 
     @login_required
     def mutate(self, info, post_id, type, content=None):
-        user = info.context.user
-
-        valid = ["like", "share", "reaction"]
-        if type not in valid:
+        if type not in ("like", "share", "reaction"):
             raise GraphQLError("Invalid interaction type")
 
         process_interaction.delay(
-            user.id,
+            info.context.user.id,
             int(post_id),
             type,
             content
         )
-
         return AddInteraction(ok=True)
 
 
@@ -131,8 +111,10 @@ class FollowUser(graphene.Mutation):
 
     @login_required
     def mutate(self, info, user_id):
-        user = info.context.user
-        process_follow.delay(user.id, int(user_id))
+        process_follow.delay(
+            info.context.user.id,
+            int(user_id)
+        )
         return FollowUser(ok=True)
 
 
@@ -147,8 +129,10 @@ class UnfollowUser(graphene.Mutation):
 
     @login_required
     def mutate(self, info, user_id):
-        user = info.context.user
-        process_unfollow.delay(user.id, int(user_id))
+        process_unfollow.delay(
+            info.context.user.id,
+            int(user_id)
+        )
         return UnfollowUser(ok=True)
 
 
@@ -163,12 +147,10 @@ class MarkNotificationRead(graphene.Mutation):
 
     @login_required
     def mutate(self, info, notification_id):
-        user = info.context.user
-
         try:
             notif = Notification.objects.get(
                 id=notification_id,
-                recipient=user
+                recipient=info.context.user
             )
         except Notification.DoesNotExist:
             raise GraphQLError("Notification not found")
@@ -183,10 +165,14 @@ class MarkNotificationRead(graphene.Mutation):
 # ROOT MUTATION
 # --------------------------------------------------
 class Mutation(graphene.ObjectType):
+    # Auth
+    register_user = RegisterUser.Field()
+    login_user = LoginUser.Field()
+
+    # Social
     create_post = CreatePost.Field()
     add_comment = AddComment.Field()
     add_interaction = AddInteraction.Field()
     follow_user = FollowUser.Field()
     unfollow_user = UnfollowUser.Field()
     mark_notification_read = MarkNotificationRead.Field()
-    register_user = RegisterUser.Field()
